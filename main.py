@@ -26,7 +26,6 @@ def get_groq_response(prompt, context_type="comment"):
         user_message = f"رد بشكل أنثروبولوجي وذكي وبإيجاز علمي على هذا التعليق أو السؤال: {prompt}"
 
     try:
-        # التحديث هنا: تم الانتقال إلى النموذج الأحدث والمستقر llama-3.1-8b-instant
         completion = groq_client.chat.completions.create(
             model="llama-3.1-8b-instant", 
             messages=[
@@ -35,7 +34,8 @@ def get_groq_response(prompt, context_type="comment"):
             ],
             temperature=0.7,
         )
-        return completion.choices.message.content
+        # التعديل الجذري والحل هنا لقراءة الرد بالشكل البرمجي الصحيح والمحدث:
+        return completion.choices[0].message.content
     except Exception as e:
         return f"عذراً، واجهت مشكلة في الاتصال بعقلي الأنثروبولوجي الرقمي! الخطأ: {e}"
 
