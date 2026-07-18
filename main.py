@@ -2,15 +2,14 @@ import os
 import telebot
 from groq import Groq
 
-# 1. إعداد البيانات (تم دمج مفتاح جروج ومعرف المجموعة مباشرة)
-# توكن تليجرام سيتم قراءته بأمان من إعدادات Railway (Variables)
+# 1. إعداد البيانات بأمان من بيئة عمل ريلواي ومعرف مجموعتك
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-GROQ_API_KEY = "GROQ_API_KEY"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROUP_CHAT_ID = -1004482110218
 
-# التحقق من وجود توكن تليجرام قبل التشغيل
-if not TELEGRAM_TOKEN:
-    raise ValueError("خطأ: لم يتم العثور على TELEGRAM_TOKEN في إعدادات البيئة (Variables)!")
+# التحقق من وجود المفاتيح في ريلواي قبل تشغيل البوت
+if not TELEGRAM_TOKEN or not GROQ_API_KEY:
+    raise ValueError("خطأ: لم يتم العثور على TELEGRAM_TOKEN أو GROQ_API_KEY في متغيرات ريلواي!")
 
 # تهيئة البوت ومنصة Groq
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
@@ -19,7 +18,7 @@ groq_client = Groq(api_key=GROQ_API_KEY)
 # دالة لإرسال النص إلى ذكاء جروج (Groq) والحصول على رد أنثروبولوجي فوري وسريع
 def get_groq_response(prompt, context_type="comment"):
     
-    # توجيه الـ AI ليتصرف كخبير أنثروبولوجيا متميز
+    # توجيه الـ AI ليتصرف كخبير أنثروبولوجيا متميز وذكي
     system_instruction = (
         "أنت بروفيسور وخبير متميز وذكي جداً في علم الأنثروبولوجيا (علم الإنسان الثقافي والحيوي والاجتماعي). "
         "ردودك يجب أن تكون عميقة، علمية، ومبسطة في نفس الوقت، وتطرح تحليلات أنثروبولوجية ممتعة بناءً على النص المعطى."
