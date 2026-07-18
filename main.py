@@ -1,6 +1,6 @@
 import logging
 import os
-from openai import OpenAI
+import requests
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -16,15 +16,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-GROQ_API_KEY       = os.environ.get("GROQ_API_KEY", "")
-CHANNEL_ID         = os.environ.get("CHANNEL_ID", "")
+TELEGRAM_BOT_TOKEN  = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+GROQ_API_KEY        = os.environ.get("GROQ_API_KEY", "")
+CHANNEL_ID          = os.environ.get("CHANNEL_ID", "")
 DISCUSSION_GROUP_ID = -1004482110218
 
-client = OpenAI(
-    api_key=GROQ_API_KEY,
-    base_url="https://api.groq.com/openai/v1",
-)
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 SYSTEM_PROMPT = """أنت خبير في علم الأنثروبولوجيا (علم الإنسان). مهمتك هي:
 1. تحليل منشورات القناة الأنثروبولوجية وإضافة تعليقات علمية ثرية عليها
@@ -52,13 +49,22 @@ def ask_groq(user_message: str, context_message: str = "") -> str:
         else:
             messages.append({"role": "user", "content": user_message})
 
-        response = client.chat.completions.create(
-            model="mixtral-8x7b-32768",
-            messages=messages,
-            max_tokens=1024,
-            temperature=0.7,
+        response = requests.post(
+            GROQ_URL,
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "mixtral-8x7b-32768",
+                "messages": messages,
+                "max_tokens": 1024,
+                "temperature": 0.7,
+            },
+            timeout=30,
         )
-        return response.choices[0].message.content.strip()
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"].strip()
 
     except Exception as e:
         logger.error(f"خطأ في Groq: {e}")
@@ -117,7 +123,10 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
     if is_from_channel:
         logger.info("منشور قناة في المجموعة — جارِ التحليل...")
         await context.bot.send_chat_action(chat_id=msg.chat_id, action="typing")
-        prompt = f"قم بتحليل هذا المنشور الأنثروبولوجي وأضف معلومات وتعليقات ثرية عليه:\n\n{msg.text}"
+        prompt = (
+            f"قم بتحليل هذا المنشور الأنثروبولوجي "
+            f"وأضف معلومات وتعليقات ثرية عليه:\n\n{msg.text}"
+        )
         reply = ask_groq(prompt)
         await msg.reply_text(
             f"🔬 *تحليل أنثروبولوجي للمنشور الجديد:*\n\n{reply}",
@@ -132,7 +141,10 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
         msg.reply_to_message.from_user.is_bot
     )
     if is_mention or is_reply_to_bot:
-        user_text = msg.text.replace(f"@{bot_username}", "").strip() if bot_username else msg.text
+        user_text = (
+            msg.text.replace(f"@{bot_username}", "").strip()
+            if bot_username else msg.text
+        )
         context_text = ""
         if msg.reply_to_message and msg.reply_to_message.text:
             context_text = msg.reply_to_message.text
@@ -145,63 +157,11 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
         await msg.reply_text(f"🔬 {reply}", parse_mode="Markdown")
         return
 
-    question_words = ["ما هي", "ما هو", "كيف", "لماذا", "ماذا", "متى", "أين",
-                      "من هم", "ما معنى", "هل", "?", "؟"]
+    question_words = [
+        "ما هي", "ما هو", "كيف", "لماذا", "ماذا",
+        "متى", "أين", "من هم", "ما معنى", "هل", "?", "؟"
+    ]
     is_question = any(w in msg.text for w in question_words) and len(msg.text) > 10
     if is_question:
-        logger.info(f"[مجموعة — سؤال] {msg.text[:60]}...")
-        await context.bot.send_chat_action(chat_id=msg.chat_id, action="typing")
-        reply = ask_groq(msg.text)
-        await msg.reply_text(f"🔬 {reply}", parse_mode="Markdown")
-
-async def handle_channel_post(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.channel_post or not update.channel_post.text:
-        return
-
-    post_text = update.channel_post.text
-    logger.info(f"منشور قناة جديد: {post_text[:60]}...")
-
-    await context.bot.send_chat_action(chat_id=DISCUSSION_GROUP_ID, action="typing")
-    prompt = (
-        f"قم بتحليل هذا المنشور الأنثروبولوجي وأضف معلومات وتعليقات "
-        f"ثرية وسؤالاً للنقاش:\n\n{post_text}"
-    )
-    reply = ask_groq(prompt)
-    await context.bot.send_message(
-        chat_id=DISCUSSION_GROUP_ID,
-        text=f"🔬 *تحليل أنثروبولوجي للمنشور الجديد:*\n\n{reply}",
-        parse_mode="Markdown",
-    )
-
-def main() -> None:
-    if not TELEGRAM_BOT_TOKEN:
-        raise ValueError("يجب تعيين TELEGRAM_BOT_TOKEN في متغيرات البيئة")
-    if not GROQ_API_KEY:
-        raise ValueError("يجب تعيين GROQ_API_KEY في متغيرات البيئة")
-
-    logger.info(f"تشغيل البوت... مجموعة النقاش: {DISCUSSION_GROUP_ID}")
-
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-
-    app.add_handler(MessageHandler(
-        filters.UpdateType.CHANNEL_POST & filters.TEXT,
-        handle_channel_post,
-    ))
-    app.add_handler(MessageHandler(
-        filters.ChatType.GROUPS & filters.TEXT & ~filters.COMMAND,
-        handle_group_message,
-    ))
-    app.add_handler(MessageHandler(
-        filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
-        handle_private_message,
-    ))
-
-    logger.info("البوت يعمل الآن ✅")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
-
-if __name__ == "__main__":
-    main()
-    
+        logger.info(f"[مجموعة — سؤال] {msg.
+        
