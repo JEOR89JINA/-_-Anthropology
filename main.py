@@ -26,8 +26,9 @@ def get_groq_response(prompt, context_type="comment"):
         user_message = f"رد بشكل أنثروبولوجي وذكي وبإيجاز علمي على هذا التعليق أو السؤال: {prompt}"
 
     try:
+        # التحديث هنا: تم الانتقال إلى النموذج الأحدث والمستقر llama-3.1-8b-instant
         completion = groq_client.chat.completions.create(
-            model="llama3-8b-8192", 
+            model="llama-3.1-8b-instant", 
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_message}
