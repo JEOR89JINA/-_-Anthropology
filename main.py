@@ -16,7 +16,7 @@ if not TELEGRAM_TOKEN or not GROQ_API_KEY:
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 groq_client = Groq(api_key=GROQ_API_KEY)
 
-# دالة مطورة لتنظيف الكلمات وجلب رابط صورة دقيقة جداً من Unsplash
+# دالة مطورة ومصلحة بالكامل لجلب كلمات بحث دقيقة وصورة مطابقة من Unsplash
 def get_unsplash_photo(query_text):
     try:
         # نطلب من جروج إعطاء كلمة رئيسية واحدة أو اثنتين صافية تماماً بالإنجليزية
@@ -26,10 +26,10 @@ def get_unsplash_photo(query_text):
                 {"role": "system", "content": "You are a keyword extractor. Extract 1 or 2 specific English keywords from the text for image search. Output ONLY the keywords. No explanation, no intro, no quotes, no punctuation. Example user text: 'حضارة الاسكيمو', your output: 'Inuit culture'."},
                 {"role": "user", "content": query_text}
             ],
-            temperature=0.1, # تقليل العشوائية لضمان الدقة
+            temperature=0.1,
         )
-        # تنظيف النص الناتج برمجياً من أي علامات تنصيص أو رموز زائدة
-        raw_query = completion.choices.message.content.strip()
+        # الحل النهائي هنا لقراءة رد جروج بشكل صحيح ومحدث دون أخطاء القوائم
+        raw_query = completion.choices[0].message.content.strip()
         search_query = re.sub(r'[^a-zA-Z0-9\s]', '', raw_query).strip()
         
         if not search_query:
@@ -45,10 +45,9 @@ def get_unsplash_photo(query_text):
             return response.json()['urls']['regular']
     except:
         pass
-    # صورة تاريخية احتياطية ممتازة في حال عدم العثور
     return "https://unsplash.com"
 
-# دالة ذكاء جروج (Groq) للرد الأنثروبولوجي
+# دالة ذكاء جروج (Groq) للرد الأنثروبولوجي المصلحة أيضاً
 def get_groq_response(prompt, context_type="comment"):
     system_instruction = (
         "أنت بروفيسور وخبير متميز وذكي جداً في علم الأنثروبولوجيا (علم الإنسان الثقافي والحيوي والاجتماعي). "
@@ -69,7 +68,8 @@ def get_groq_response(prompt, context_type="comment"):
             ],
             temperature=0.7,
         )
-        return completion.choices.message.content
+        # قراءة الرد بالطريقة البرمجية الصحيحة والمحدثة والمستقرة
+        return completion.choices[0].message.content
     except Exception as e:
         return f"عذراً، واجهت مشكلة في الاتصال بعقلي الأنثروبولوجي الرقمي! الخطأ: {e}"
 
@@ -130,3 +130,4 @@ def handle_group_messages(message):
 
 print("البوت الأنثروبولوجي المطور بالكامل بالصور الذكية يعمل الآن...")
 bot.infinity_polling()
+        
